@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+option csharp_namespace = "GrpcServer.Protos";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/wrappers.proto";
+
+service User {
+	rpc CreateUser(UserRequestModel) returns (UserResponseModel);
+	rpc GetUsers(Empty) returns (stream UserResponseModel);
+	rpc GetUsersAsArray(google.protobuf.Empty) returns (UserListResponse);
+}
+
+message Empty {
+
+}
+
+message UserRequestModel {
+	string email = 1; //Required
+	string firstName = 2; //Required
+	string lastName = 3; //Required
+	google.protobuf.Int32Value age = 4; //Optional
+	bool isDiscount = 5; //Required
+}
+
+message UserResponseModel {
+	string email = 1;
+	string firstName = 2;
+	string lastName = 3;
+	google.protobuf.Int32Value age = 4;
+	bool isDiscount = 5;
+	int64 id = 6;
+}
+
+message UserListResponse {
+  repeated UserResponseModel users = 1; // List of users
+}
+
+
