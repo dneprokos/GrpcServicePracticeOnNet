@@ -15,12 +15,18 @@ message Empty {
 
 }
 
+enum UserType {
+	Admin = 0;
+	Regular = 1;
+}
+
 message UserRequestModel {
 	string email = 1; //Required
 	string firstName = 2; //Required
 	string lastName = 3; //Required
 	google.protobuf.Int32Value age = 4; //Optional
 	bool isDiscount = 5; //Required
+	UserType userType = 6; //Required
 }
 
 message UserResponseModel {
@@ -30,6 +36,7 @@ message UserResponseModel {
 	google.protobuf.Int32Value age = 4;
 	bool isDiscount = 5;
 	int64 id = 6;
+	UserType userType = 7;
 }
 
 message UserListResponse {
