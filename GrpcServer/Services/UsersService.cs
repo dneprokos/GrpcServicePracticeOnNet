@@ -1,22 +1,20 @@
 ﻿using Grpc.Core;
+using GrpcServer.DatabaseProviders;
 using GrpcServer.Protos;
-using System.Collections.Concurrent;
+using GrpcServer.Validators;
 
 namespace GrpcServer.Services
 {
     public class UsersService : User.UserBase
     {
         private readonly Logger<UsersService>? _logger;
-        private ConcurrentBag<UserResponseModel> _tempDataBase = [];
+        private UsersDbProvider _usersDbProvider;
 
-        public UsersService()
+        public UsersService(Logger<UsersService>? logger = null)
         {
+            _usersDbProvider = UsersDbProvider.GetInstance();
+            _logger = logger;
         }
-
-        //public UsersService(Logger<UsersService> logger)
-        //{
-        //   _logger = logger;
-        //}
 
         /// <summary>
         /// Creates a user
@@ -27,43 +25,20 @@ namespace GrpcServer.Services
         /// <exception cref="RpcException"></exception>
         public override async Task<UserResponseModel> CreateUser(UserRequestModel request, ServerCallContext context)
         {
-            // List to keep track of missing fields
-            List<string> missingFields = [];
+            // Validate properties
+            var validator = new UserRequestValidator();
+            var validationResult = validator.Validate(request);
 
-            // Validate required fields
-            if (string.IsNullOrWhiteSpace(request.Email))
+            if (!validationResult.IsValid)
             {
-                missingFields.Add("email");
-            }
-            if (string.IsNullOrWhiteSpace(request.FirstName))
-            {
-                missingFields.Add("first name");
-            }
-            if (string.IsNullOrWhiteSpace(request.LastName))
-            {
-                missingFields.Add("last name");
-            }
-
-            // Check if there are any missing fields and respond accordingly
-            if (missingFields.Count > 0)
-            {
-                string errorMessage = $"The following required fields are missing: {string.Join(", ", missingFields)}";
-                _logger?.LogWarning("CreateUser request received with missing fields: {ErrorMessage}", errorMessage);
+                var errors = validationResult.Errors.Select(e => e.ErrorMessage);
+                string errorMessage = $"Validation errors: {string.Join(", ", errors)}";
+                _logger?.LogWarning("CreateUser request received with validation errors: {ErrorMessage}", errorMessage);
                 throw new RpcException(new Status(StatusCode.InvalidArgument, errorMessage));
             }
 
             // Proceed with creating the user if validation passes
-            var response = new UserResponseModel
-            {
-                Email = request.Email,
-                FirstName = request.FirstName,
-                LastName = request.LastName,
-                Age = request.Age,
-                IsDiscount = request.IsDiscount,
-                Id = _tempDataBase.Count + 1  // Simulating a user creation
-            };
-
-            _tempDataBase.Add(response);
+            var response = _usersDbProvider.AddUserToDb(request);
             _logger?.LogInformation($"User created with ID {response.Id}");
 
             return await Task.FromResult(response);
@@ -80,7 +55,9 @@ namespace GrpcServer.Services
         {
             _logger?.LogInformation("Starting to stream users.");
 
-            foreach (var user in _tempDataBase)
+            var dbResults = _usersDbProvider.GetAll();
+
+            foreach (var user in dbResults)
             {
                 if (context.CancellationToken.IsCancellationRequested)
                 {
@@ -106,7 +83,8 @@ namespace GrpcServer.Services
             _logger?.LogInformation("Retrieving all users");
 
             var response = new UserListResponse();
-            response.Users.AddRange(_tempDataBase);
+            var dbResults = _usersDbProvider.GetAll();
+            response.Users.AddRange(dbResults);
 
             return Task.FromResult(response);
         }
