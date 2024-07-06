@@ -1,10 +1,11 @@
 ﻿using Bogus;
 using FluentAssertions;
-using FluentAssertions.Common;
 using FluentAssertions.Execution;
 using Grpc.Core;
 using Grpc.Net.Client;
 using GrpcServer.Protos;
+using GrpcService.Client.GrpcCore.Models;
+using GrpcService.Client.GrpcCore.Wrappers;
 using GrpcService.Tests.Utils.RandomGenerators;
 using NUnit.Framework;
 
@@ -198,6 +199,32 @@ namespace GrpcService.Tests.Tests.UsersServiceTests
                 Assert.That(ex!.Status.StatusCode, Is.EqualTo(StatusCode.InvalidArgument));
                 Assert.That(ex.Status.Detail, Does.Contain("Age must be between 18 and 60"));
             }
+        }
+
+        [Test]
+        public async void CreateUser_AgeValidation_AlternativeImplementation()
+        {
+            //Arrange
+            var requestModel = new UserRequestModel
+            {
+                Email = "test@test.com",
+                FirstName = "FirstName",
+                LastName = "LastName",
+                UserType = UserType.Regular,
+                Age = 61
+            };
+
+            //Act
+            GrpcResponseModel<UserResponseModel> response = await new GrpcRequestBase()
+                .ExecuteRequestAsync(
+                    () => Task.FromResult(_userClient!.CreateUserAsync(requestModel)),
+                    requestModel,
+                    [],
+                    "UserAsync");
+
+            //Assert
+            response.Status!.Value.StatusCode.Should().Be(StatusCode.InvalidArgument);
+            response.Status!.Value.Detail.Should().Be("Age must be between 18 and 60");
         }
 
         //TODO: Add more tests...
